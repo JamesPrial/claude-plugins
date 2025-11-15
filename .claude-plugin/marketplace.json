@@ -13,8 +13,8 @@
     {
       "name": "todo-log",
       "source": "./todo-log",
-      "description": "Logs todo items to a file",
-      "version": "0.1.0"
+      "description": "Logs TodoWrite activity to timestamped history with configurable location",
+      "version": "0.2.0"
     }
   ]
 }
