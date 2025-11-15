@@ -1,0 +1,14 @@
+{
+  "name": "plugins-by-james",
+  "owner": {
+    "name": "James Prial"
+  },
+  "plugins": [
+    {
+      "name": "secrets-checker",
+      "source": "./secrets-checker",
+      "description": "PreToolUse hook that detects and blocks secrets in git commits",
+      "version": "0.1.0"
+    }
+  ]
+}

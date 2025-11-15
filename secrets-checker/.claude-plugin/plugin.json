@@ -1,0 +1,9 @@
+{
+  "name": "secrets-checker",
+  "version": "0.1.0",
+  "description": "PreToolUse hook that detects and blocks secrets in git commits",
+  "author": {
+    "name": "James Prial"
+  },
+  "hooks": "./hooks/hooks.json"
+}

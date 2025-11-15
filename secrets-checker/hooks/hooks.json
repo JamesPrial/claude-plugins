@@ -1,0 +1,17 @@
+{
+  "description": "Secret detection for git commits",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-secrets.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
