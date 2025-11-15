@@ -9,6 +9,12 @@
       "source": "./secrets-checker",
       "description": "PreToolUse hook that detects and blocks secrets in git commits",
       "version": "0.1.0"
+    },
+    {
+      "name": "todo-log",
+      "source": "./todo-log",
+      "description": "Logs todo items to a file",
+      "version": "0.1.0"
     }
   ]
 }
