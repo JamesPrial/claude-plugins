@@ -39,14 +39,7 @@ claude --debug
 4. Test manually by triggering the hook event
 5. Check debug output or transcript mode (Ctrl-R) for hook feedback
 
-**Running the security-hooks test suite:**
-```bash
-# Run with pytest
-python -m pytest security-hooks/scripts/test_check_secrets.py -v
-
-# Or run directly (includes unittest runner)
-python security-hooks/scripts/test_check_secrets.py
-```
+See each plugin's CLAUDE.md for test commands.
 
 ## Architecture
 
@@ -103,73 +96,13 @@ Hooks receive JSON with complete session context including tool parameters, conv
 - `CLAUDE_PLUGIN_ROOT`: Plugin installation directory (use for accessing plugin files)
 - `TODO_LOG_PATH`: Custom log file path for todo-log plugin (default: `.claude/todos.json`)
 
-### security-hooks Architecture
+### Plugins
 
-**Type:** PreToolUse hook on Bash tool matching "git commit" commands
+**security-hooks** (v1.0.0): PreToolUse hook that scans staged files for 24+ secret patterns before git commits. Blocks commits containing detected secrets.
+→ See [security-hooks/CLAUDE.md](security-hooks/CLAUDE.md) for patterns, test suite, and development details.
 
-**How it works:**
-1. Parses `.env` files to extract secret values
-2. Gets list of staged files via git (uses staging area, not disk)
-3. Scans staged files for:
-   - Pattern-based secrets (18+ patterns)
-   - Hardcoded values from `.env` files
-4. Exits with code 2 if secrets found (blocks commit)
-
-**Pattern Detection (18+ patterns):**
-- AWS Access Key ID: `AKIA[0-9A-Z]{16}`
-- AWS Secret Access Key: 40-char base64
-- OpenAI: `sk-[a-zA-Z0-9]{48}`
-- Anthropic: `sk-ant-[a-zA-Z0-9-_]{90,}`
-- GitHub: `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` prefixes
-- Slack: `xox[baprs]-` prefixes
-- Stripe: `sk_live_`, `rk_live_`
-- Google API: `AIza[0-9A-Za-z-_]{35}`
-- SendGrid: `SG\.[a-zA-Z0-9-_]{22,}`
-- Discord, npm, PyPI, Twilio, Mailgun tokens
-- Bearer tokens, private keys (RSA, DSA, EC, OpenSSH)
-- Database connection strings (PostgreSQL, MySQL, MongoDB)
-
-**Filtering Logic:**
-- Skips binary files (30+ extensions) and `.env` files themselves
-- Skips files >10MB
-- Filters out short values (<8 chars) and common non-secrets
-- Reports line numbers for easy remediation
-
-### todo-log Architecture
-
-**Type:** PostToolUse hook on TodoWrite tool
-
-**How it works:**
-1. Receives TodoWrite tool result via stdin
-2. Extracts todo list from tool result
-3. Adds metadata: timestamp (ISO 8601), session_id, cwd
-4. Appends to log file as JSON array
-5. Creates parent directories if needed
-
-**Configuration:**
-- Default log path: `.claude/todos.json`
-- Custom path via `TODO_LOG_PATH` environment variable
-
-**Output Format:**
-```json
-[
-  {
-    "timestamp": "2025-11-14T10:30:45.123Z",
-    "session_id": "abc123def456",
-    "cwd": "/home/user/project",
-    "todos": [
-      {
-        "content": "Task description",
-        "status": "pending" | "in_progress" | "completed",
-        "activeForm": "Active form of task"
-      }
-    ]
-  }
-]
-```
-
-**Error Handling:**
-Gracefully handles corrupted JSON files by initializing as empty array.
+**todo-log** (v0.2.0): PostToolUse hook that logs TodoWrite tool usage to `.claude/todos.json` with timestamps and session metadata.
+→ See [todo-log/CLAUDE.md](todo-log/CLAUDE.md) for log format, security features, and configuration.
 
 ## Technology Stack
 
