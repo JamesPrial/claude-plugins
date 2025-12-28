@@ -1,0 +1,38 @@
+name: Source Branch Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-source-branch:
+    name: Validate PR Source Branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check source branch is staging
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const headBranch = context.payload.pull_request.head.ref;
+            const baseBranch = context.payload.pull_request.base.ref;
+
+            console.log(`PR #${context.payload.pull_request.number}`);
+            console.log(`Source branch (head): ${headBranch}`);
+            console.log(`Target branch (base): ${baseBranch}`);
+
+            if (baseBranch === 'main' && headBranch !== 'staging') {
+              core.setFailed(
+                `PRs to 'main' must come from 'staging' branch.\n` +
+                `Current source: '${headBranch}'\n\n` +
+                `Fix: Merge to staging first, then PR staging -> main`
+              );
+            } else {
+              console.log('Source branch validation passed: staging -> main');
+            }

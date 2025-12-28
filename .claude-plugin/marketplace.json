@@ -14,7 +14,13 @@
       "name": "todo-log",
       "source": "./todo-log",
       "description": "Logs TodoWrite activity to timestamped history with configurable location",
-      "version": "0.2.0"
+      "version": "1.0.0"
+    },
+    {
+      "name": "version-control",
+      "source": "./version-control",
+      "description": "Git and GitHub CLI subagents",
+      "version": "1.0.0"
     }
   ]
 }
