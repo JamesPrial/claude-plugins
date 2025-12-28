@@ -18,10 +18,16 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install pytest
-        run: pip install pytest
+      - name: Install dependencies
+        run: pip install pytest pyyaml
 
-      - name: Run tests
+      - name: Run security-hooks tests
+        run: pytest security-hooks/scripts/test_check_secrets.py -v --tb=short
+
+      - name: Run todo-log tests
+        run: pytest todo-log/scripts/test_save_todos.py -v --tb=short
+
+      - name: Run version-control tests
         run: |
-          pytest security-hooks/scripts/test_check_secrets.py -v --tb=short
-          pytest todo-log/scripts/test_save_todos.py -v --tb=short
+          pytest version-control/skills/gh-cli/scripts/test_*.py -v --tb=short
+          pytest version-control/skills/github-actions-writer/scripts/test_*.py -v --tb=short
