@@ -22,4 +22,6 @@ jobs:
         run: pip install pytest
 
       - name: Run tests
-        run: pytest security-hooks/scripts/test_check_secrets.py -v --tb=short
+        run: |
+          pytest security-hooks/scripts/test_check_secrets.py -v --tb=short
+          pytest todo-log/scripts/test_save_todos.py -v --tb=short
