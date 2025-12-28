@@ -7,7 +7,7 @@ A local Claude Code plugin marketplace by James Prial.
 | Plugin | Version | Status | Description |
 |--------|---------|--------|-------------|
 | [security-hooks](./security-hooks) | 1.0.0 | stable | PreToolUse hook that detects and blocks secrets in git commits |
-| [todo-log](./todo-log) | 0.2.0 | unstable | Logs TodoWrite activity to `.claude/todos.json` |
+| [todo-log](./todo-log) | 1.0.0 | stable | Logs TodoWrite activity to `.claude/todos.json` |
 
 ## Installation
 

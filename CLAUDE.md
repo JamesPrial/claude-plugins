@@ -2,7 +2,7 @@
 
 Claude Code plugin marketplace with two production-ready plugins:
 - **security-hooks** (v1.0.0): Blocks secrets in git commits
-- **todo-log** (v0.2.0): Logs TodoWrite activity to `.claude/todos.json`
+- **todo-log** (v1.0.0): Logs TodoWrite activity to `.claude/todos.json`
 
 ## Quick Reference
 
