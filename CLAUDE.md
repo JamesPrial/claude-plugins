@@ -6,19 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **Claude Code plugin marketplace** containing two production-ready plugins that extend Claude Code functionality through event-driven hooks:
 
-- **secrets-checker** (v0.1.0): Security plugin that detects and blocks potential secrets in git commits
-- **todo-log** (v0.1.0): Productivity plugin that automatically logs TodoWrite tool usage to `.claude/todos.json`
+- **security-hooks** (v1.0.0): Security plugin that detects and blocks potential secrets in git commits
+- **todo-log** (v0.2.0): Productivity plugin that automatically logs TodoWrite tool usage to `.claude/todos.json`
 
 ## Development Commands
 
 ### Plugin Management
 
 ```bash
-# Add this local marketplace
-/plugin marketplace add /home/jamesprial/code/claude-plugins
+# Add this local marketplace (use your actual path)
+/plugin marketplace add /path/to/claude-plugins
 
 # Install a plugin from marketplace
-/plugin install secrets-checker@plugins-by-james
+/plugin install security-hooks@plugins-by-james
 /plugin install todo-log@plugins-by-james
 
 # List installed plugins
@@ -39,7 +39,14 @@ claude --debug
 4. Test manually by triggering the hook event
 5. Check debug output or transcript mode (Ctrl-R) for hook feedback
 
-No formal test suite exists - testing is manual/integration-based.
+**Running the security-hooks test suite:**
+```bash
+# Run with pytest
+python -m pytest security-hooks/scripts/test_check_secrets.py -v
+
+# Or run directly (includes unittest runner)
+python security-hooks/scripts/test_check_secrets.py
+```
 
 ## Architecture
 
@@ -94,28 +101,37 @@ Hooks receive JSON with complete session context including tool parameters, conv
 **Environment Variables:**
 - `CLAUDE_PROJECT_DIR`: Project root directory (use for file operations)
 - `CLAUDE_PLUGIN_ROOT`: Plugin installation directory (use for accessing plugin files)
+- `TODO_LOG_PATH`: Custom log file path for todo-log plugin (default: `.claude/todos.json`)
 
-### secrets-checker Architecture
+### security-hooks Architecture
 
 **Type:** PreToolUse hook on Bash tool matching "git commit" commands
 
 **How it works:**
 1. Parses `.env` files to extract secret values
-2. Gets list of staged files via git
+2. Gets list of staged files via git (uses staging area, not disk)
 3. Scans staged files for:
-   - Pattern-based secrets (API keys, tokens, private keys, AWS credentials)
+   - Pattern-based secrets (18+ patterns)
    - Hardcoded values from `.env` files
 4. Exits with code 2 if secrets found (blocks commit)
 
-**Pattern Detection:**
-- Generic: `(secret|token|password|key)\s*[:=]\s*['"][^'"]+['"]`
-- AWS: `AKIA[0-9A-Z]{16}`
+**Pattern Detection (18+ patterns):**
+- AWS Access Key ID: `AKIA[0-9A-Z]{16}`
+- AWS Secret Access Key: 40-char base64
 - OpenAI: `sk-[a-zA-Z0-9]{48}`
-- GitHub PAT: `ghp_[a-zA-Z0-9]{36}`
-- Private keys: `-----BEGIN.*PRIVATE KEY-----`
+- Anthropic: `sk-ant-[a-zA-Z0-9-_]{90,}`
+- GitHub: `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` prefixes
+- Slack: `xox[baprs]-` prefixes
+- Stripe: `sk_live_`, `rk_live_`
+- Google API: `AIza[0-9A-Za-z-_]{35}`
+- SendGrid: `SG\.[a-zA-Z0-9-_]{22,}`
+- Discord, npm, PyPI, Twilio, Mailgun tokens
+- Bearer tokens, private keys (RSA, DSA, EC, OpenSSH)
+- Database connection strings (PostgreSQL, MySQL, MongoDB)
 
 **Filtering Logic:**
-- Skips binary files and `.env` files themselves
+- Skips binary files (30+ extensions) and `.env` files themselves
+- Skips files >10MB
 - Filters out short values (<8 chars) and common non-secrets
 - Reports line numbers for easy remediation
 
@@ -127,8 +143,12 @@ Hooks receive JSON with complete session context including tool parameters, conv
 1. Receives TodoWrite tool result via stdin
 2. Extracts todo list from tool result
 3. Adds metadata: timestamp (ISO 8601), session_id, cwd
-4. Appends to `.claude/todos.json` as JSON array
-5. Creates `.claude` directory if needed
+4. Appends to log file as JSON array
+5. Creates parent directories if needed
+
+**Configuration:**
+- Default log path: `.claude/todos.json`
+- Custom path via `TODO_LOG_PATH` environment variable
 
 **Output Format:**
 ```json
@@ -173,7 +193,7 @@ All Python scripts use **only standard library**. This ensures:
 - PostToolUse hooks should never block (exit 0 or error)
 - Stderr messages guide Claude on what went wrong
 
-**Example from secrets-checker:**
+**Example from security-hooks:**
 ```python
 if secrets_found:
     print(json.dumps({"errors": [...]}), file=sys.stderr)
@@ -189,13 +209,13 @@ else:
 ```json
 {
   "name": "plugins-by-james",
-  "version": "0.1.0",
-  "description": "Local marketplace for James's Claude Code plugins",
+  "owner": { "name": "James Prial" },
   "plugins": [
     {
-      "id": "secrets-checker",
-      "version": "0.1.0",
-      "path": "./secrets-checker"
+      "name": "security-hooks",
+      "source": "./security-hooks",
+      "description": "PreToolUse hook that detects and blocks secrets in git commits",
+      "version": "1.0.0"
     }
   ]
 }
