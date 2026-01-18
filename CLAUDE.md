@@ -1,8 +1,9 @@
 # CLAUDE.md
 
-Claude Code plugin marketplace with two production-ready plugins:
-- **security-hooks** (v1.0.0): Blocks secrets in git commits
-- **todo-log** (v1.0.0): Logs TodoWrite activity to `.claude/todos.json`
+Claude Code plugin marketplace with three plugins:
+- **security-hooks** (v1.0.1): Blocks secrets in git commits
+- **todo-log** (v1.0.1): Logs TodoWrite activity to `.claude/todos.json`
+- **version-control** (v1.0.0, UNSTABLE): Git operations and GitHub CLI workflows
 
 ## Quick Reference
 
@@ -29,6 +30,7 @@ claude --debug
 
 - [security-hooks/CLAUDE.md](security-hooks/CLAUDE.md) - Secret detection patterns, test suite, development
 - [todo-log/CLAUDE.md](todo-log/CLAUDE.md) - Log format, security features, configuration
+- [version-control/CLAUDE.md](version-control/CLAUDE.md) - Git agents, GitHub CLI skills
 
 ## Plugin Structure
 
