@@ -10,8 +10,8 @@ A local Claude Code plugin marketplace by James Prial.
 
 | Plugin | Version | Status | Description |
 |--------|---------|--------|-------------|
-| [security-hooks](./security-hooks) | 1.0.0 | stable | PreToolUse hook that detects and blocks secrets in git commits |
-| [todo-log](./todo-log) | 1.0.0 | stable | Logs TodoWrite activity to `.claude/todos.json` |
+| [security-hooks](./security-hooks) | 1.0.1 | stable | PreToolUse hook that detects and blocks secrets in git commits |
+| [todo-log](./todo-log) | 1.0.1 | stable | Logs TodoWrite activity to `.claude/todos.json` |
 | [version-control](./version-control) | 1.0.0 | UNSTABLE | Git operations and GitHub CLI workflows via agents and skills |
 
 ## Installation

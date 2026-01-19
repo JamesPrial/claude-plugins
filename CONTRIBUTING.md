@@ -34,19 +34,25 @@ plugin-name/
 
 ```json
 {
-  "hooks": [
-    {
-      "matcher": "ToolName",
-      "hooks": [
-        {
-          "type": "PreToolUse",
-          "command": "$PLUGIN_DIR/scripts/script.py"
-        }
-      ]
-    }
-  ]
+  "description": "Brief description of what the hooks do",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "ToolName",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/script.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+Note: Use `PreToolUse` for hooks that run before a tool (can block), or `PostToolUse` for hooks that run after.
 
 ## Development Setup
 
@@ -87,7 +93,7 @@ echo '{"tool_name": "Bash", "tool_input": {"command": "example"}}' | ./scripts/y
 
 ### Hook Best Practices
 
-- Use `$PLUGIN_DIR` or `$CLAUDE_PROJECT_DIR` for paths
+- Use `${CLAUDE_PLUGIN_ROOT}` or `${CLAUDE_PROJECT_DIR}` for paths
 - Never use relative paths (hooks run in different contexts)
 - Set reasonable timeouts (default is 30 seconds)
 - Fail closed on errors (exit 2)

@@ -21,6 +21,15 @@
       "source": "./version-control",
       "description": "Git and GitHub CLI subagents",
       "version": "1.0.0"
+    },
+    {
+      "name": "golang-workflow",
+      "source": {
+        "source": "github",
+        "repo": "JamesPrial/golang-plugin",
+        "path": "golang-workflow"
+      },
+      "description": "Go development workflow with specialized agents, idiomatic patterns, and automated code quality hooks"
     }
   ]
 }
