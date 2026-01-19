@@ -26,8 +26,7 @@
       "name": "golang-workflow",
       "source": {
         "source": "github",
-        "repo": "JamesPrial/golang-plugin",
-        "path": "golang-workflow"
+        "repo": "JamesPrial/golang-plugin"
       },
       "description": "Go development workflow with specialized agents, idiomatic patterns, and automated code quality hooks"
     }
