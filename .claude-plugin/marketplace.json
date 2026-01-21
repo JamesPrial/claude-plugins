@@ -28,7 +28,8 @@
         "source": "url",
         "url": "https://github.com/JamesPrial/golang-plugin.git"
       },
-      "description": "Go development workflow with specialized agents, idiomatic patterns, and automated code quality hooks"
+      "description": "Go development workflow with specialized agents, idiomatic patterns, and automated code quality hooks",
+      "version": "1.4.0"
     }
   ]
 }
