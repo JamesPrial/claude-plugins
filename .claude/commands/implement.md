@@ -59,7 +59,7 @@ Wave 2: For each dependency group (processed sequentially):
 Wave 3: [1 devops-infra-lead + 1 bash-test-runner] IN PARALLEL
   - bash-test-runner: shellcheck + bats tests
   - devops-infra-lead: reviews ALL code and tests
-  - Returns: [PASS] | [FAIL] + failures | [NEEDS_CHANGES] + issues
+  - Returns: [PASS] | [FAIL] + failures | [NEEDS_CHANGES] + issues | [ERROR] + setup issues
 
 Wave 4: [git-ops agent] - only on [PASS]
 ```
@@ -86,7 +86,7 @@ Orchestrator decides when to use per-file parallelization vs simpler approach:
    - Launch M bash-tdd-architect agents (one per feature touching group) in SAME message
    - Wait for all agents in group to complete
 6. **Wave 3**: Launch devops-infra-lead AND bash-test-runner in SINGLE message
-7. **Verdict**: Process verdict ([PASS] + [PASS] | [FAIL] | [NEEDS_CHANGES])
+7. **Verdict**: Process verdict ([PASS] + [PASS] | [FAIL] | [NEEDS_CHANGES] | [ERROR])
 8. **Loop**: If not approved, synthesize feedback and return to Wave 2
 9. **Git**: Launch git-ops agent on success
 
@@ -283,7 +283,12 @@ Commit and push: [summary of what was implemented]
 ## Verdict Processing
 
 ```python
-if devops_lead.verdict == "[PASS]" and test_runner.result == "[PASS]":
+if test_runner.result == "[ERROR]":
+    # Test environment broken - halt workflow immediately
+    # Report setup issue (e.g., "bats-core not installed")
+    halt_workflow(test_runner.output)
+    request_user_action("Fix test environment before continuing")
+elif devops_lead.verdict == "[PASS]" and test_runner.result == "[PASS]":
     launch_git_ops()
 elif devops_lead.verdict == "[FAIL]" or test_runner.result.startswith("[FAIL]"):
     # Synthesize feedback - don't copy-paste full output
