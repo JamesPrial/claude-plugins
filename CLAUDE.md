@@ -20,6 +20,7 @@ Claude Code plugin marketplace with seven plugins:
 - `validate-versions.yml` - Blocks PRs if marketplace.json versions don't match plugin.json
 - `test.yml` - Runs pytest for all plugins
 - `source-branch-check.yml` - Enforces staging → main PR flow
+- `detect-plugin-changes.yml` → `bump-plugin-versions.yml` → `create-release-tags.yml` - Auto semantic versioning chain (requires VERSION_PAT secret)
 
 ## Quick Reference
 

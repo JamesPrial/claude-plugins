@@ -1,0 +1,180 @@
+# Workflow 1 of 3: Auto Semantic Versioning
+# Detects which plugins changed, analyzes bump type, dispatches to bump-plugin-versions.yml
+#
+# Prerequisites:
+#   - VERSION_PAT secret with Contents (write), Pull requests (read), Workflows (write) permissions
+#
+# Flow: Push to main → detect changes → analyze bump type → dispatch bump-versions event
+
+name: Detect Plugin Changes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'security-hooks/**'
+      - 'todo-log/**'
+      - 'version-control/**'
+      - 'bash-workflow/**'
+      - 'claude-code-guide/**'
+      - 'slash-command-guide/**'
+      # Exclude version files to prevent infinite loops
+      - '!**/.claude-plugin/plugin.json'
+      - '!.claude-plugin/marketplace.json'
+
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: detect-changes
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect:
+    name: Detect Changes & Dispatch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need HEAD~1 for diff comparison
+
+      - name: Detect changed plugins
+        id: changes
+        run: |
+          echo "Detecting changed plugins..."
+
+          # Local plugins to check (excludes external golang-workflow)
+          LOCAL_PLUGINS=("security-hooks" "todo-log" "version-control" "bash-workflow" "claude-code-guide" "slash-command-guide")
+
+          # Get changed files between HEAD and HEAD~1
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          CHANGED_PLUGINS=()
+
+          for plugin in "${LOCAL_PLUGINS[@]}"; do
+            # Check if any files in this plugin directory changed
+            if echo "$CHANGED_FILES" | grep -q "^${plugin}/"; then
+              # Exclude changes that are ONLY to plugin.json (manual version bump)
+              NON_VERSION_CHANGES=$(echo "$CHANGED_FILES" | grep "^${plugin}/" | grep -v "\.claude-plugin/plugin\.json$" | wc -l | tr -d ' ')
+
+              if [ "$NON_VERSION_CHANGES" -gt 0 ]; then
+                echo "Plugin changed: $plugin (${NON_VERSION_CHANGES} non-version files)"
+                CHANGED_PLUGINS+=("\"$plugin\"")
+              else
+                echo "Plugin skipped: $plugin (only plugin.json changed - manual bump)"
+              fi
+            fi
+          done
+
+          # Build JSON array
+          if [ ${#CHANGED_PLUGINS[@]} -eq 0 ]; then
+            PLUGINS_JSON="[]"
+            echo "No plugins with substantive changes detected"
+          else
+            PLUGINS_JSON="[$(IFS=,; echo "${CHANGED_PLUGINS[*]}")]"
+            echo "Plugins to bump: $PLUGINS_JSON"
+          fi
+
+          echo "plugins=$PLUGINS_JSON" >> $GITHUB_OUTPUT
+
+      - name: Analyze bump type
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Use manual input if provided (workflow_dispatch)
+          if [ -n "${{ inputs.bump_type }}" ]; then
+            BUMP_TYPE="${{ inputs.bump_type }}"
+            echo "Using manual bump type: $BUMP_TYPE"
+            echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Analyzing commit for bump type..."
+
+          # Try to find the merged PR for this commit
+          PR_NUMBER=$(gh pr list --state merged --search "${{ github.sha }}" --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          BUMP_TYPE="patch"  # Default
+
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            echo "Found merged PR: #$PR_NUMBER"
+
+            # Check PR labels
+            LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null | tr '\n' ' ' || echo "")
+            echo "PR labels: $LABELS"
+
+            if echo "$LABELS" | grep -qiE '\b(major|breaking)\b'; then
+              BUMP_TYPE="major"
+              echo "Detected major bump from PR labels"
+            elif echo "$LABELS" | grep -qiE '\b(minor|feat|feature)\b'; then
+              BUMP_TYPE="minor"
+              echo "Detected minor bump from PR labels"
+            elif echo "$LABELS" | grep -qiE '\b(patch|fix|bugfix)\b'; then
+              BUMP_TYPE="patch"
+              echo "Detected patch bump from PR labels"
+            fi
+          fi
+
+          # Fallback: Check commit message for conventional commit format
+          if [ "$BUMP_TYPE" = "patch" ]; then
+            COMMIT_MSG=$(git log --format=%B -n 1 HEAD)
+            echo "Commit message: $COMMIT_MSG"
+
+            if echo "$COMMIT_MSG" | grep -q "BREAKING CHANGE"; then
+              BUMP_TYPE="major"
+              echo "Detected major bump from commit message (BREAKING CHANGE)"
+            elif echo "$COMMIT_MSG" | grep -qiE "^feat(\(|:|\!)"; then
+              BUMP_TYPE="minor"
+              echo "Detected minor bump from commit message (feat:)"
+            fi
+          fi
+
+          echo "Final bump type: $BUMP_TYPE"
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+
+      - name: Dispatch version bump
+        if: steps.changes.outputs.plugins != '[]'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.VERSION_PAT }}
+          event-type: bump-versions
+          client-payload: >
+            {
+              "plugins": ${{ steps.changes.outputs.plugins }},
+              "bump_type": "${{ steps.bump.outputs.bump_type }}",
+              "trigger_sha": "${{ github.sha }}",
+              "trigger_ref": "${{ github.ref }}"
+            }
+
+      - name: Summary
+        run: |
+          echo "## Detect Plugin Changes Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed Plugins:** ${{ steps.changes.outputs.plugins }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Bump Type:** ${{ steps.bump.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.changes.outputs.plugins }}" = "[]" ]; then
+            echo "No plugins require version bumping." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Dispatched \`bump-versions\` event to trigger version bumping workflow." >> $GITHUB_STEP_SUMMARY
+          fi
