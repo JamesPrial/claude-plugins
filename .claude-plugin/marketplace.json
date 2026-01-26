@@ -8,13 +8,13 @@
       "name": "security-hooks",
       "source": "./security-hooks",
       "description": "PreToolUse hook that detects and blocks secrets in git commits",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "todo-log",
       "source": "./todo-log",
       "description": "Logs TodoWrite activity to timestamped history with configurable location",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "version-control",
