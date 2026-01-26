@@ -30,6 +30,24 @@
       },
       "description": "Go development workflow with specialized agents, idiomatic patterns, and automated code quality hooks",
       "version": "1.4.0"
+    },
+    {
+      "name": "claude-code-guide",
+      "source": "./claude-code-guide",
+      "description": "Claude Code documentation for plugins, hooks, MCP servers, skills, and settings",
+      "version": "1.0.0"
+    },
+    {
+      "name": "slash-command-guide",
+      "source": "./slash-command-guide",
+      "description": "Create custom slash commands for Claude Code with syntax, patterns, and helper scripts",
+      "version": "1.0.0"
+    },
+    {
+      "name": "bash-workflow",
+      "source": "./bash-workflow",
+      "description": "Bash development workflow with TDD, parallel agents, and DevOps review gates",
+      "version": "1.0.0"
     }
   ]
 }

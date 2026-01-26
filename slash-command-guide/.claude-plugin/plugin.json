@@ -1,0 +1,8 @@
+{
+  "name": "slash-command-guide",
+  "version": "1.0.0",
+  "description": "Create custom slash commands for Claude Code with syntax, patterns, and helper scripts",
+  "author": {
+    "name": "James Prial"
+  }
+}

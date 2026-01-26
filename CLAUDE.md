@@ -1,9 +1,16 @@
 # CLAUDE.md
 
-Claude Code plugin marketplace with three plugins:
+Claude Code plugin marketplace with four plugins:
 - **security-hooks** (v1.0.1): Blocks secrets in git commits
 - **todo-log** (v1.0.1): Logs TodoWrite activity to `.claude/todos.json`
 - **version-control** (v1.0.0, UNSTABLE): Git operations and GitHub CLI workflows
+- **golang-workflow** (v1.4.0, external): Go development workflow (hosted separately)
+
+## CI/CD
+
+- `validate-versions.yml` - Blocks PRs if marketplace.json versions don't match plugin.json
+- `test.yml` - Runs pytest for all plugins
+- `source-branch-check.yml` - Enforces staging → main PR flow
 
 ## Quick Reference
 

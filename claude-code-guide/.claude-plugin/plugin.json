@@ -1,0 +1,8 @@
+{
+  "name": "claude-code-guide",
+  "version": "1.0.0",
+  "description": "Claude Code documentation for plugins, hooks, MCP servers, skills, and settings",
+  "author": {
+    "name": "James Prial"
+  }
+}
