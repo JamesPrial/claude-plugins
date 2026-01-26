@@ -1,0 +1,121 @@
+name: Validate Plugin Versions
+
+on:
+  pull_request:
+    branches: [main, staging]
+    paths:
+      - '.claude-plugin/marketplace.json'
+      - '**/plugin.json'
+  push:
+    branches: [main, staging]
+    paths:
+      - '.claude-plugin/marketplace.json'
+      - '**/plugin.json'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-matrix:
+    name: Generate Plugin Matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      plugins: ${{ steps.get-plugins.outputs.plugins }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract plugins from marketplace.json
+        id: get-plugins
+        run: |
+          plugins=$(jq -c '.plugins' .claude-plugin/marketplace.json)
+          echo "plugins=$plugins" >> $GITHUB_OUTPUT
+          echo "Found plugins:"
+          echo "$plugins" | jq '.[].name'
+
+  validate-plugin:
+    name: Validate ${{ matrix.plugin.name }}
+    needs: generate-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        plugin: ${{ fromJson(needs.generate-matrix.outputs.plugins) }}
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate version
+        run: |
+          PLUGIN_NAME="${{ matrix.plugin.name }}"
+          MARKETPLACE_VERSION="${{ matrix.plugin.version }}"
+          SOURCE='${{ toJson(matrix.plugin.source) }}'
+
+          echo "Validating: $PLUGIN_NAME"
+          echo "Marketplace version: $MARKETPLACE_VERSION"
+
+          # Check marketplace version exists
+          if [ -z "$MARKETPLACE_VERSION" ] || [ "$MARKETPLACE_VERSION" = "null" ]; then
+            echo "::error::Version field missing in marketplace.json for $PLUGIN_NAME"
+            exit 1
+          fi
+
+          # Determine if local or external plugin
+          if echo "$SOURCE" | jq -e 'type == "string"' > /dev/null 2>&1; then
+            # Local plugin - source is a path like "./security-hooks"
+            LOCAL_PATH=$(echo "$SOURCE" | jq -r '.')
+            PLUGIN_JSON_PATH="$LOCAL_PATH/.claude-plugin/plugin.json"
+
+            echo "Local plugin at: $LOCAL_PATH"
+
+            if [ ! -f "$PLUGIN_JSON_PATH" ]; then
+              echo "::error::plugin.json not found at $PLUGIN_JSON_PATH"
+              exit 1
+            fi
+
+            PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_JSON_PATH")
+          else
+            # External plugin - source is an object with url
+            REPO_URL=$(echo "$SOURCE" | jq -r '.url')
+            TEMP_DIR="/tmp/plugin-validation-$PLUGIN_NAME"
+
+            echo "External plugin from: $REPO_URL"
+
+            if ! git clone --depth 1 "$REPO_URL" "$TEMP_DIR" 2>&1; then
+              echo "::error::Could not clone $REPO_URL"
+              exit 1
+            fi
+
+            PLUGIN_JSON_PATH="$TEMP_DIR/.claude-plugin/plugin.json"
+
+            if [ ! -f "$PLUGIN_JSON_PATH" ]; then
+              echo "::error::plugin.json not found in cloned repo at $PLUGIN_JSON_PATH"
+              exit 1
+            fi
+
+            PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_JSON_PATH")
+          fi
+
+          # Check plugin.json has version
+          if [ -z "$PLUGIN_VERSION" ]; then
+            echo "::error::Version field missing in plugin.json for $PLUGIN_NAME"
+            exit 1
+          fi
+
+          echo "Plugin.json version: $PLUGIN_VERSION"
+
+          # Compare versions
+          if [ "$MARKETPLACE_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo ""
+            echo "::error::Version mismatch for $PLUGIN_NAME"
+            echo ""
+            echo "  marketplace.json: $MARKETPLACE_VERSION"
+            echo "  plugin.json:      $PLUGIN_VERSION"
+            echo ""
+            echo "Fix: Update marketplace.json version to $PLUGIN_VERSION"
+            exit 1
+          fi
+
+          echo "Version match confirmed: $MARKETPLACE_VERSION"
