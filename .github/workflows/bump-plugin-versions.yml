@@ -1,0 +1,199 @@
+# Workflow 2 of 3: Auto Semantic Versioning
+# Receives plugin list and bump type, calculates new versions, updates files, commits, dispatches to create-release-tags.yml
+#
+# Triggered by: repository_dispatch event "bump-versions" from detect-plugin-changes.yml
+# Payload: { plugins: ["plugin1", "plugin2"], bump_type: "patch|minor|major", trigger_sha: "..." }
+#
+# Flow: Receive dispatch → bump versions → update marketplace.json → commit → dispatch create-tags event
+
+name: Bump Plugin Versions
+
+on:
+  repository_dispatch:
+    types: [bump-versions]
+
+concurrency:
+  group: bump-versions
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Bump Versions & Commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.VERSION_PAT }}
+          ref: main  # Ensure we're on latest main
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump versions
+        id: versions
+        run: |
+          PLUGINS='${{ toJson(github.event.client_payload.plugins) }}'
+          BUMP_TYPE="${{ github.event.client_payload.bump_type }}"
+
+          echo "Plugins to bump: $PLUGINS"
+          echo "Bump type: $BUMP_TYPE"
+
+          # Function to calculate new version
+          bump_version() {
+            local current=$1
+            local bump_type=$2
+
+            # Handle missing or null version
+            if [ -z "$current" ] || [ "$current" = "null" ]; then
+              echo "0.1.0"
+              return
+            fi
+
+            # Parse semver (major.minor.patch)
+            IFS='.' read -r major minor patch <<< "$current"
+
+            # Default to 0 if parsing fails
+            major=${major:-0}
+            minor=${minor:-0}
+            patch=${patch:-0}
+
+            case "$bump_type" in
+              major)
+                echo "$((major + 1)).0.0"
+                ;;
+              minor)
+                echo "${major}.$((minor + 1)).0"
+                ;;
+              patch|*)
+                echo "${major}.${minor}.$((patch + 1))"
+                ;;
+            esac
+          }
+
+          # Initialize version map
+          VERSION_MAP="{}"
+          BUMPED_PLUGINS=()
+
+          # Process each plugin
+          for plugin in $(echo "$PLUGINS" | jq -r '.[]'); do
+            PLUGIN_JSON="${plugin}/.claude-plugin/plugin.json"
+
+            if [ ! -f "$PLUGIN_JSON" ]; then
+              echo "::warning::plugin.json not found for $plugin, skipping"
+              continue
+            fi
+
+            # Get current version
+            CURRENT_VERSION=$(jq -r '.version // "null"' "$PLUGIN_JSON")
+            echo "Plugin: $plugin, Current version: $CURRENT_VERSION"
+
+            # Check marketplace.json for manual bump detection
+            MARKETPLACE_VERSION=$(jq -r --arg name "$plugin" '.plugins[] | select(.name == $name) | .version // "null"' .claude-plugin/marketplace.json)
+
+            if [ "$CURRENT_VERSION" != "$MARKETPLACE_VERSION" ] && [ "$CURRENT_VERSION" != "null" ] && [ "$MARKETPLACE_VERSION" != "null" ]; then
+              echo "::notice::Manual bump detected for $plugin (plugin.json: $CURRENT_VERSION, marketplace: $MARKETPLACE_VERSION)"
+              echo "Syncing marketplace.json to $CURRENT_VERSION without auto-bump"
+              NEW_VERSION="$CURRENT_VERSION"
+            else
+              # Calculate new version
+              NEW_VERSION=$(bump_version "$CURRENT_VERSION" "$BUMP_TYPE")
+              echo "Bumping $plugin: $CURRENT_VERSION -> $NEW_VERSION"
+
+              # Update plugin.json
+              jq --arg v "$NEW_VERSION" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp"
+              mv "${PLUGIN_JSON}.tmp" "$PLUGIN_JSON"
+            fi
+
+            # Add to version map
+            VERSION_MAP=$(echo "$VERSION_MAP" | jq --arg p "$plugin" --arg v "$NEW_VERSION" '. + {($p): $v}')
+            BUMPED_PLUGINS+=("$plugin")
+          done
+
+          echo "Version map: $VERSION_MAP"
+          echo "version_map=$VERSION_MAP" >> $GITHUB_OUTPUT
+
+          # Store bumped plugins list for commit message
+          PLUGINS_LIST=$(IFS=', '; echo "${BUMPED_PLUGINS[*]}")
+          echo "plugins_list=$PLUGINS_LIST" >> $GITHUB_OUTPUT
+
+      - name: Update marketplace.json
+        run: |
+          VERSION_MAP='${{ steps.versions.outputs.version_map }}'
+
+          echo "Updating marketplace.json with new versions..."
+
+          for plugin in $(echo "$VERSION_MAP" | jq -r 'keys[]'); do
+            NEW_VERSION=$(echo "$VERSION_MAP" | jq -r --arg p "$plugin" '.[$p]')
+            echo "Setting $plugin to $NEW_VERSION in marketplace.json"
+
+            # Update the version for this plugin in marketplace.json
+            jq --arg name "$plugin" --arg version "$NEW_VERSION" \
+              '(.plugins[] | select(.name == $name)).version = $version' \
+              .claude-plugin/marketplace.json > .claude-plugin/marketplace.json.tmp
+            mv .claude-plugin/marketplace.json.tmp .claude-plugin/marketplace.json
+          done
+
+          echo "marketplace.json updated:"
+          jq '.plugins[] | {name, version}' .claude-plugin/marketplace.json
+
+      - name: Commit changes
+        id: commit
+        run: |
+          # Stage version files
+          git add */.claude-plugin/plugin.json .claude-plugin/marketplace.json
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "committed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Create commit
+          PLUGINS_LIST="${{ steps.versions.outputs.plugins_list }}"
+          git commit -m "chore: bump versions for ${PLUGINS_LIST}"
+
+          # Push to main
+          git push origin main
+
+          echo "committed=true" >> $GITHUB_OUTPUT
+          echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Dispatch tag creation
+        if: steps.commit.outputs.committed == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.VERSION_PAT }}
+          event-type: create-tags
+          client-payload: >
+            {
+              "version_map": ${{ steps.versions.outputs.version_map }},
+              "commit_sha": "${{ steps.commit.outputs.commit_sha }}",
+              "trigger_sha": "${{ github.event.client_payload.trigger_sha }}"
+            }
+
+      - name: Summary
+        run: |
+          echo "## Bump Plugin Versions Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Bump Type:** ${{ github.event.client_payload.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Version Changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.versions.outputs.version_map }}' | jq . >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.commit.outputs.committed }}" = "true" ]; then
+            echo "Committed changes and dispatched \`create-tags\` event." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No changes to commit." >> $GITHUB_STEP_SUMMARY
+          fi
