@@ -33,6 +33,9 @@ Claude Code plugin marketplace with seven plugins:
 /plugin list
 /hooks
 claude --debug
+
+# Set GitHub secret from current auth token (no intermediate files)
+gh auth token | gh secret set SECRET_NAME
 ```
 
 ### Development Workflow
