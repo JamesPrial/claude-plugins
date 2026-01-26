@@ -1,10 +1,19 @@
 # CLAUDE.md
 
-Claude Code plugin marketplace with four plugins:
+Claude Code plugin marketplace with seven plugins:
+
+**Hook Plugins:**
 - **security-hooks** (v1.0.1): Blocks secrets in git commits
 - **todo-log** (v1.0.1): Logs TodoWrite activity to `.claude/todos.json`
+
+**Agent/Skill Plugins:**
 - **version-control** (v1.0.0, UNSTABLE): Git operations and GitHub CLI workflows
 - **golang-workflow** (v1.4.0, external): Go development workflow (hosted separately)
+- **bash-workflow** (v1.0.0): Bash development with TDD, parallel agents, and DevOps review
+
+**Documentation Plugins:**
+- **claude-code-guide** (v1.0.0): Claude Code documentation for plugins, hooks, MCP, skills, settings
+- **slash-command-guide** (v1.0.0): Slash command creation guide with patterns and helper scripts
 
 ## CI/CD
 
@@ -38,6 +47,9 @@ claude --debug
 - [security-hooks/CLAUDE.md](security-hooks/CLAUDE.md) - Secret detection patterns, test suite, development
 - [todo-log/CLAUDE.md](todo-log/CLAUDE.md) - Log format, security features, configuration
 - [version-control/CLAUDE.md](version-control/CLAUDE.md) - Git agents, GitHub CLI skills
+- [bash-workflow/CLAUDE.md](bash-workflow/CLAUDE.md) - TDD agents, /implement command, DevOps review
+- [claude-code-guide/CLAUDE.md](claude-code-guide/CLAUDE.md) - Plugin documentation skills
+- [slash-command-guide/CLAUDE.md](slash-command-guide/CLAUDE.md) - Command creation guide
 
 ## Plugin Structure
 
