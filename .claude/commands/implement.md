@@ -1,12 +1,12 @@
 ---
-description: Python development workflow - explore, implement, review, test, iterate until success
+description: Bash development workflow - explore, plan (4 perspectives), implement, review, test, iterate until success
 allowed-tools: Task, Read, Glob, Grep, TodoWrite, AskUserQuestion, Edit, Write
 argument-hint: <feature-or-task-description>
 ---
 
 # Role: Orchestrator
 
-You coordinate specialized agents in parallel waves. For multi-file tasks, spawn per-file writers and per-feature test-architects.
+You coordinate specialized agents in parallel waves for Bash/shell script development. Launch paired writer/tester agents simultaneously to prevent reward hacking.
 
 ## Critical Constraints
 
@@ -15,7 +15,8 @@ You coordinate specialized agents in parallel waves. For multi-file tasks, spawn
 - **REQUIRED**: Delegate implementation work to agents via Task tool
 - **REQUIRED**: Execute agents in parallel waves when possible
 - **REQUIRED**: Track progress with TodoWrite
-- **REQUIRED**: Launch code-writers + test-architects TOGETHER (prevents reward hacking)
+- **REQUIRED**: Launch bash-script-architect + bash-tdd-architect TOGETHER (prevents reward hacking)
+- **REQUIRED**: Always run 4 Plan agents in Wave 1b (Implementation, Testing, Security, DevOps perspectives)
 
 ## Direct Edit Exceptions
 
@@ -24,11 +25,11 @@ Edit/Write tools are available but **strongly discouraged**. Prefer agent delega
 **Acceptable uses for direct edits:**
 - Trivial fixes (typos, single-line changes, import ordering)
 - Config file tweaks during iteration
-- Quick fixes identified by python-code-pedant that don't warrant full agent cycle
+- Quick fixes identified by devops-infra-lead that don't warrant full agent cycle
 
 **NOT acceptable for direct edits:**
-- Main implementation (use python-code-writer)
-- Test writing (use python-test-architect)
+- Main implementation (use bash-script-architect)
+- Test writing (use bash-tdd-architect)
 - Any change requiring review consideration
 - Multi-file changes
 
@@ -37,20 +38,30 @@ Edit/Write tools are available but **strongly discouraged**. Prefer agent delega
 ## Parallel Wave Structure
 
 ```
-Wave 1: [Explore agent]
+Wave 1a: [Explore agent]
   - Identify files to modify/create
-  - Build dependency graph (which files must be written before others)
+  - Build dependency graph
   - Break task into features with specific behaviors
-  - Output to ~/.claude/python-workflow/explorer-findings.md
+  - Output to ~/.claude/bash-workflow/explorer-findings.md
+
+Wave 1b: [4 Plan agents IN PARALLEL] - different perspectives
+  - Plan (Implementation): Structure, patterns, dependencies
+  - Plan (Testing): Edge cases, failure modes, bats test strategy
+  - Plan (Security): Input validation, permissions, secrets
+  - Plan (DevOps): Portability (macOS/Linux), CI/CD, deployment
+  - Synthesize into unified approach in ~/.claude/bash-workflow/unified-plan.md
 
 Wave 2: For each dependency group (processed sequentially):
-  - [N python-code-writer agents] - one per file in group, run in parallel
-  - [M python-test-architect agents] - one per feature touching group, run in parallel
+  - [N bash-script-architect agents] - one per file in group, run in parallel
+  - [M bash-tdd-architect agents] - one per feature touching group, run in parallel
   - Wait for all agents before proceeding to next group
 
-Wave 3: [1 python-code-pedant + 1 python-test-runner]
-  - Single pedant reviews ALL files for cross-file consistency
-  - Test runner executes full test suite
+Wave 3: [1 devops-infra-lead + 1 bash-test-runner] IN PARALLEL
+  - bash-test-runner: shellcheck + bats tests
+  - devops-infra-lead: reviews ALL code and tests
+  - Returns: [PASS] | [FAIL] + failures | [NEEDS_CHANGES] + issues | [ERROR] + setup issues
+
+Wave 4: [git-ops agent] - only on [PASS]
 ```
 
 ## Fallback Heuristics
@@ -67,16 +78,17 @@ Orchestrator decides when to use per-file parallelization vs simpler approach:
 ## Execution Flow
 
 1. **Initialize**: Create todo list with task breakdown
-2. **Wave 1**: Launch Explore agent to understand codebase and build dependency graph
-3. **Analyze findings**: Parse dependency groups and features from explorer output
-4. **Wave 2**: For each dependency group (sequentially):
-   - Launch N python-code-writer agents (one per file in group) in SINGLE message
-   - Launch M python-test-architect agents (one per feature touching group) in SAME message
+2. **Wave 1a**: Launch Explore agent to understand codebase and build dependency graph
+3. **Wave 1b**: Launch 4 Plan agents in parallel (Implementation, Testing, Security, DevOps)
+4. **Synthesize**: Combine perspectives into unified-plan.md
+5. **Wave 2**: For each dependency group (sequentially):
+   - Launch N bash-script-architect agents (one per file in group) in SINGLE message
+   - Launch M bash-tdd-architect agents (one per feature touching group) in SAME message
    - Wait for all agents in group to complete
-5. **Wave 3**: Launch python-code-pedant AND python-test-runner in SINGLE message
-6. **Verdict**: Process verdict (Approved + PASSED | Needs Work | Rejected | NEEDS_DISCUSSION)
-7. **Loop**: If not approved, synthesize feedback and return to Wave 2
-8. **Git**: Launch git-ops agent on success
+6. **Wave 3**: Launch devops-infra-lead AND bash-test-runner in SINGLE message
+7. **Verdict**: Process verdict ([PASS] + [PASS] | [FAIL] | [NEEDS_CHANGES] | [ERROR])
+8. **Loop**: If not approved, synthesize feedback and return to Wave 2
+9. **Git**: Launch git-ops agent on success
 
 ## Agent Prompts
 
@@ -85,19 +97,19 @@ Orchestrator decides when to use per-file parallelization vs simpler approach:
 Analyze codebase for: {TASK}
 
 Find:
-- Relevant files and packages
-- Existing patterns and conventions
-- Dependencies and imports
-- Test locations and patterns (tests/, src/tests/, *_test.py patterns)
+- Relevant shell scripts and their dependencies
+- Existing patterns and conventions (set -euo pipefail, function patterns)
+- Test locations (test/*.bats, *.bats files)
+- Platform considerations (macOS vs Linux specifics)
 
-Output to ~/.claude/python-workflow/explorer-findings.md with this structure:
+Output to ~/.claude/bash-workflow/explorer-findings.md with this structure:
 
 ## Files
 | Path | Action | Group | Notes |
 |------|--------|-------|-------|
-| src/foo.py | modify | 1 | Entry point |
-| src/bar.py | create | 1 | Helper module |
-| src/baz.py | modify | 2 | Depends on bar.py |
+| scripts/sync.sh | modify | 1 | Entry point |
+| scripts/lib/utils.sh | create | 1 | Helper functions |
+| scripts/backup.sh | modify | 2 | Depends on utils.sh |
 
 Group assignment rules:
 - Group 1: Files with no dependencies on other modified files
@@ -112,12 +124,77 @@ Group assignment rules:
   - {behavior 2}
 ```
 
-### python-code-writer Agent (per-file)
+### Plan Agent (Implementation Perspective)
+```
+Design implementation approach for: {TASK}
+
+Based on exploration findings: {EXPLORER_SUMMARY}
+
+Focus on:
+- Script structure and organization
+- Function decomposition
+- Dependencies between components
+- Reusable patterns from codebase
+
+Output implementation design to ~/.claude/bash-workflow/plan-implementation.md
+```
+
+### Plan Agent (Testing Perspective)
+```
+Design test strategy for: {TASK}
+
+Based on exploration findings: {EXPLORER_SUMMARY}
+
+Focus on:
+- Behaviors to verify with bats tests
+- Edge cases: empty input, missing files, bad permissions, signals
+- Error paths and failure modes
+- Platform-specific test considerations
+
+Output test strategy to ~/.claude/bash-workflow/plan-testing.md
+```
+
+### Plan Agent (Security Perspective)
+```
+Analyze security considerations for: {TASK}
+
+Based on exploration findings: {EXPLORER_SUMMARY}
+
+Focus on:
+- Input validation requirements
+- Permission handling (file modes, sudo usage)
+- Secret handling (no hardcoded secrets, use env vars)
+- Command injection risks
+- Unsafe patterns to avoid
+
+Output security analysis to ~/.claude/bash-workflow/plan-security.md
+```
+
+### Plan Agent (DevOps Perspective)
+```
+Analyze operational considerations for: {TASK}
+
+Based on exploration findings: {EXPLORER_SUMMARY}
+
+Focus on:
+- macOS vs Linux compatibility (BSD vs GNU tools)
+- CI/CD integration considerations
+- Deployment and installation
+- Dependency requirements (external commands needed)
+- Idempotency for repeated runs
+
+Output DevOps analysis to ~/.claude/bash-workflow/plan-devops.md
+```
+
+### bash-script-architect Agent (per-file)
 ```
 Implement changes to: {FILE_PATH}
 
 Task context:
 {OVERALL_TASK_DESCRIPTION}
+
+Unified plan summary:
+{UNIFIED_PLAN_SUMMARY}
 
 Scope for this file:
 {FILE_SPECIFIC_CHANGES}
@@ -128,72 +205,74 @@ Context from exploration:
 - Interface contracts to implement: {INTERFACES}
 
 Requirements:
-- Follow existing patterns in codebase
-- Include type hints for all function signatures
-- Add docstrings for public interfaces
-- Handle errors with specific exception types
-- DO NOT write tests (python-test-architect handles this)
+- Follow bash-script-architect standards (set -euo pipefail, quoted variables)
+- Include function documentation headers
+- Handle errors with meaningful messages
+- DO NOT write tests (bash-tdd-architect handles this)
 - If defining interfaces other files depend on, make them clear
 
 Output: Write implementation for {FILE_PATH} only
 ```
 
-### python-test-architect Agent (per-feature)
+### bash-tdd-architect Agent (per-feature)
 ```
-Write tests for feature: {FEATURE_NAME}
+Write bats tests for feature: {FEATURE_NAME}
 
 Behaviors to verify:
 {BEHAVIOR_LIST}
 
 Files involved: {FILE_LIST}
 
+Security considerations from plan:
+{SECURITY_NOTES}
+
 Requirements:
 - Design tests from SPEC, not by reading implementation
-- Use pytest with clear test names (test_should_X_when_Y)
+- Use bats-core with bats-assert and bats-support
 - Cover happy paths, edge cases, and error conditions
-- Use meaningful assertions (not just is not None)
-- Mock external dependencies only
-- One test file per feature: test_{feature_slug}.py
+- Test on both macOS and Linux if platform-specific code
+- One test file per feature: test_{feature_slug}.bats
 
-Test file location: tests/ or match existing project convention
+Test file location: test/ or match existing project convention
 
-Output: Write comprehensive test file for this feature
+Output: Write comprehensive bats test file for this feature
 ```
 
-### python-code-pedant Agent
+### devops-infra-lead Agent (Reviewer)
 ```
 Review implementation for: {TASK}
 
 Files changed: {FILE_LIST}
 
-Check:
-- Type safety (no Any without justification, explicit Optional)
-- AI-sloppiness patterns (verbose names, templated docstrings, generic exceptions)
-- Code quality and Pythonic idioms
-- Error handling completeness
-- Cross-file consistency (naming, patterns, interfaces)
-- Test quality (no reward hacking, meaningful assertions)
+Review using the Bash Code Review Checklist and Bats Test Review Checklist.
 
-REVIEW BOTH CODE AND TESTS. For tests, check:
-- [ ] Does each test actually verify the behavior it claims?
-- [ ] Could the implementation be broken in ways these tests wouldn't catch?
-- [ ] Are tests testing mocks instead of real behavior?
-- [ ] Are edge cases covered?
+Check code for:
+- set -euo pipefail usage
+- Quoted variable expansions
+- Error handling completeness
+- Cross-platform compatibility
+- Shellcheck compliance
+
+Check tests for:
+- Behavior-focused (not implementation-focused)
+- Edge case coverage
+- Test independence
+- Meaningful assertions
 
 Return verdict:
-- Approved: Ready to merge
-- Needs Work: List specific issues by file
-- Rejected: Critical problems found
-- NEEDS_DISCUSSION: Architectural concerns requiring user input
-
-Output: Review in ~/.claude/python-workflow/review.md
+- [PASS]: Ready to commit
+- [FAIL]: List test failures and critical issues
+- [NEEDS_CHANGES]: List issues requiring fixes
 ```
 
-### python-test-runner Agent
+### bash-test-runner Agent
 ```
-Run the test suite and report results.
+Run shellcheck and bats tests for the project.
 
-Return: PASSED | FAILED: [failing tests with error messages] | ERROR: [setup issue]
+Return:
+- [PASS] if all shellcheck clean and tests pass
+- [FAIL]: [list of shellcheck errors and test failures]
+- [ERROR]: [setup issues like missing bats]
 ```
 
 ### git-ops Agent
@@ -204,14 +283,20 @@ Commit and push: [summary of what was implemented]
 ## Verdict Processing
 
 ```python
-if code_pedant.verdict == "Approved" and test_runner.result == "PASSED":
+if test_runner.result == "[ERROR]":
+    # Test environment broken - halt workflow immediately
+    # Report setup issue (e.g., "bats-core not installed")
+    halt_workflow(test_runner.output)
+    request_user_action("Fix test environment before continuing")
+elif devops_lead.verdict == "[PASS]" and test_runner.result == "[PASS]":
     launch_git_ops()
-elif code_pedant.verdict in ["Rejected", "Needs Work"] or test_runner.result == "FAILED":
+elif devops_lead.verdict == "[FAIL]" or test_runner.result.startswith("[FAIL]"):
     # Synthesize feedback - don't copy-paste full output
     # Extract specific issues as bullet points
     retry_wave_2(changes=synthesized_feedback)
-elif code_pedant.verdict == "NEEDS_DISCUSSION":
-    ask_user(code_pedant.concerns)
+elif devops_lead.verdict == "[NEEDS_CHANGES]":
+    # Minor issues - can often be fixed with direct edits
+    fix_issues_or_retry_wave_2()
 ```
 
 ## Context Curation
@@ -221,10 +306,11 @@ You are the ORCHESTRATOR. Your job is to **distill and route information**—not
 | Agent | Needs | Does NOT need |
 |-------|-------|---------------|
 | Explore | Task description | Previous iteration history |
-| python-code-writer (per-file) | Task context, file-specific scope, sibling files | Other files' details, test info |
-| python-test-architect (per-feature) | Feature behaviors, file locations | Implementation details |
-| python-code-pedant | Files changed, summary of what was done | Full explorer output |
-| python-test-runner | Nothing beyond "run tests" | Any context |
+| Plan agents | Explorer findings, task context | Other plan perspectives (run in parallel) |
+| bash-script-architect (per-file) | Task context, unified plan, file-specific scope | Other files' details, test info |
+| bash-tdd-architect (per-feature) | Feature behaviors, security notes, file locations | Implementation details |
+| devops-infra-lead | Files changed, summary of what was done | Full explorer output |
+| bash-test-runner | Nothing beyond "run tests" | Any context |
 | git-ops | Brief summary for commit message | Plan, feedback history |
 
 **When passing iteration feedback:** Synthesize, don't copy-paste. Extract specific issues as bullet points.
@@ -233,98 +319,108 @@ You are the ORCHESTRATOR. Your job is to **distill and route information**—not
 
 ```
 1. Create task breakdown for {FEATURE}
-2. Wave 1: Launch Explore agent (dependency graph + features)
-3. Analyze findings and identify groups/features
-4. Wave 2 Group 1: Launch [N writers + M testers] for group 1 (TOGETHER)
-5. Wave 2 Group 2+: Repeat for remaining groups (sequential)
-6. Wave 3: Launch python-code-pedant + python-test-runner
-7. Process verdict
-8. Complete workflow / iterate if needed
-9. Git operations (if approved)
+2. Wave 1a: Launch Explore agent (dependency graph + features)
+3. Wave 1b: Launch 4 Plan agents in parallel
+4. Synthesize unified plan from 4 perspectives
+5. Wave 2 Group 1: Launch [N architects + M testers] for group 1 (TOGETHER)
+6. Wave 2 Group 2+: Repeat for remaining groups (sequential)
+7. Wave 3: Launch devops-infra-lead + bash-test-runner
+8. Process verdict
+9. Complete workflow / iterate if needed
+10. Git operations (if approved)
 ```
 
 ## Output Directory
 
-`~/.claude/python-workflow/` for intermediate artifacts:
+`~/.claude/bash-workflow/` for intermediate artifacts:
 - `explorer-findings.md`
+- `plan-implementation.md`
+- `plan-testing.md`
+- `plan-security.md`
+- `plan-devops.md`
+- `unified-plan.md`
 - `review.md`
 
 ## Anti-Patterns to Avoid
 
-1. **Don't launch code-writers and test-architects separately** - always in the same message
-2. **Don't let test-architect see implementation first** - tests come from spec
-3. **Don't copy-paste full agent outputs** - synthesize to bullet points
-4. **Don't skip code-pedant review** even for "simple" changes
-5. **Don't proceed to git-ops** without BOTH Approved verdict AND PASSED tests
-6. **Don't ignore test review** - reward hacking is a real failure mode
-7. **Don't use Edit/Write for substantive changes** - delegate to python-code-writer
-8. **Don't bypass review with direct edits** - even "quick fixes" need quality gates
-9. **Don't skip dependency analysis** - parallel writers can create conflicts
-10. **Don't spawn test-architect per file** - tests are by feature, not file
-11. **Don't proceed to group N+1** until group N completes
-12. **Don't over-parallelize trivial tasks** - overhead may exceed benefit (see heuristics)
+1. **Don't launch script-architects and tdd-architects separately** - always in the same message
+2. **Don't let tdd-architect see implementation first** - tests come from spec
+3. **Don't skip the 4 Plan perspectives** - all 4 are required for Wave 1b
+4. **Don't copy-paste full agent outputs** - synthesize to bullet points
+5. **Don't skip devops-infra-lead review** even for "simple" changes
+6. **Don't proceed to git-ops** without [PASS] from both reviewer AND test-runner
+7. **Don't ignore test review** - reward hacking is a real failure mode
+8. **Don't use Edit/Write for substantive changes** - delegate to bash-script-architect
+9. **Don't bypass review with direct edits** - even "quick fixes" need quality gates
+10. **Don't skip dependency analysis** - parallel writers can create conflicts
+11. **Don't spawn tdd-architect per file** - tests are by feature, not file
+12. **Don't proceed to group N+1** until group N completes
 
 ## Example: Multi-File Task
 
-Task: "Add SQLite backend to storage module"
+Task: "Add backup functionality with rotation to the sync scripts"
 
-**Explorer output:**
+**Wave 1a - Explorer output:**
 ```
 ## Files
 | Path | Action | Group | Notes |
 |------|--------|-------|-------|
-| storage/protocol.py | create | 1 | Interfaces (no deps) |
-| storage/__init__.py | create | 2 | Factory (needs protocol) |
-| storage/json_backend.py | create | 2 | Implements protocol |
-| storage/sqlite_backend.py | create | 2 | Implements protocol |
+| scripts/lib/backup.sh | create | 1 | Backup functions (no deps) |
+| scripts/sync.sh | modify | 2 | Add backup before sync |
+| scripts/cleanup.sh | create | 2 | Rotation logic |
 
 ## Features
-### Feature: Storage Protocol
-- Files: [storage/protocol.py]
+### Feature: Backup Creation
+- Files: [scripts/lib/backup.sh, scripts/sync.sh]
 - Behaviors:
-  - Define StorageBackend interface with load/append methods
+  - Create timestamped backup before sync
+  - Skip backup if no changes detected
 
-### Feature: JSON Persistence
-- Files: [storage/json_backend.py, storage/__init__.py]
+### Feature: Backup Rotation
+- Files: [scripts/cleanup.sh]
 - Behaviors:
-  - Load history from JSON file
-  - Append entry atomically (temp file + rename)
+  - Keep last N backups (configurable)
+  - Remove oldest when limit exceeded
+```
 
-### Feature: SQLite Persistence
-- Files: [storage/sqlite_backend.py, storage/__init__.py]
-- Behaviors:
-  - Load history from database
-  - Append entry in transaction
-  - Query entries by session
-  - Query todos by status
+**Wave 1b - 4 Plan agents (single message with 4 Task calls):**
+```
+Plan (Implementation): Focus on script structure
+Plan (Testing): Edge cases for backup/rotation
+Plan (Security): Permission handling for backup files
+Plan (DevOps): Cross-platform tar/date commands
 ```
 
 **Wave 2 execution:**
 ```
 Group 1 (single message with 2 Task calls):
-  - python-code-writer: storage/protocol.py
-  - python-test-architect: "Storage Protocol" feature
+  - bash-script-architect: scripts/lib/backup.sh
+  - bash-tdd-architect: "Backup Creation" feature
   [wait for completion]
 
-Group 2 (single message with 5 Task calls):
-  - python-code-writer: storage/__init__.py
-  - python-code-writer: storage/json_backend.py
-  - python-code-writer: storage/sqlite_backend.py
-  - python-test-architect: "JSON Persistence" feature
-  - python-test-architect: "SQLite Persistence" feature
+Group 2 (single message with 4 Task calls):
+  - bash-script-architect: scripts/sync.sh
+  - bash-script-architect: scripts/cleanup.sh
+  - bash-tdd-architect: "Backup Rotation" feature
+  - bash-tdd-architect: "Sync Integration" feature (if identified)
   [wait for completion]
 ```
 
-Total agents: 4 code-writers + 3 test-architects = 7 (vs 2 in simple mode)
+**Wave 3 (single message with 2 Task calls):**
+```
+  - bash-test-runner: Run shellcheck + bats
+  - devops-infra-lead: Review all code and tests
+  [wait for both, check verdicts]
+```
 
 ## Success Criteria
 
 The workflow is complete when ALL are true:
-1. code-pedant returned "Approved"
-2. python-test-runner returned "PASSED"
+1. devops-infra-lead returned `[PASS]`
+2. bash-test-runner returned `[PASS]` (shellcheck clean, bats pass)
 3. git-ops confirmed commit successful
 
-**There is NO shortcut.** Even if the change is trivial, the gate is: Approved + PASSED = proceed.
+**There is NO shortcut.** Even if the change is trivial, the gate is: [PASS] + [PASS] = proceed.
 
 ## Output Format
 
