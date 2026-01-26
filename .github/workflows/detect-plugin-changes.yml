@@ -53,7 +53,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need HEAD~1 for diff comparison
+          fetch-depth: 0  # Full history for multi-commit push detection
 
       - name: Detect changed plugins
         id: changes
@@ -63,8 +63,13 @@ jobs:
           # Local plugins to check (excludes external golang-workflow)
           LOCAL_PLUGINS=("security-hooks" "todo-log" "version-control" "bash-workflow" "claude-code-guide" "slash-command-guide")
 
-          # Get changed files between HEAD and HEAD~1
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD)
+          # Get changed files since push started (handles multi-commit pushes)
+          if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            CHANGED_FILES=$(git diff --name-only "${{ github.event.before }}" HEAD)
+          else
+            # Initial push or force push - compare with HEAD~1 as fallback
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD)
+          fi
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
